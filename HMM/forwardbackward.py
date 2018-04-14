@@ -15,17 +15,7 @@ Created on Fri April 13 14:56:37 2018
 ################################################################################
 import sys
 import copy
-################################################################################
-###test_open()
-# test whether the ifle can be opened
-
-def test_open(file):
-    try:
-        f = open(file, "r")
-        f.close()
-    except:
-        print("Unable to open file" + filepath)
-        sys.exit()
+import numpy as np
 ################################################################################
 ###read_as_matrix()
 #
@@ -38,17 +28,6 @@ def read_as_matrix(file):
                 matrix.append(line)
     f.close()
     return matrix
-################################################################################
-###read_as_matrix_float()
-#
-def read_as_matrix_float(file):
-    matrix = []
-    with open (file, 'r') as f:
-        for line in f.readlines():
-            line = line.rstrip().split()
-            matrix.append(list(map(float, line)))
-    f.close()
-    return matrix
 ###############################################################################
 ###read_as_list()
 #
@@ -56,8 +35,9 @@ def read_as_list(file):
     list = []
     with open (file, 'r') as f:
         for line in f.readlines():
-            line = line.rstrip()
-            list.append(line)
+            if line != '\n':
+                line = line.rstrip()
+                list.append(line)
     f.close()
     return list
 ################################################################################
@@ -79,6 +59,7 @@ def prediction(test_set_with_indices, k, A, B, C, output, index_2_word, index_2_
     f = open(output, 'w')
     for sequence in test_set_with_indices:
         predicted_tag = predict_each_sequence(sequence, k, A, B, C)
+
         for i, token in enumerate(sequence):
             word_idx = token[0]
             predicted_tag_idx = predicted_tag[i]
@@ -96,9 +77,8 @@ def predict_each_sequence(sequence, k, A, B, C):
     tmp1 = 0
     tmp2 = 0
     # matrix : T x k, each entry = alpha * beta
-    alpha_matrix = [[0]*k for i in range(T)]
-    beta_matrix = [[0]*k for i in range(T)]
-    matrix = [[0]*k for i in range(T)]
+    alpha_matrix = np.zeros((T, k))
+    beta_matrix = np.zeros((T,k))
 
     # forward
     for t in range(T):
@@ -108,29 +88,27 @@ def predict_each_sequence(sequence, k, A, B, C):
                 alpha_matrix[t][j] = C[j]*(B[j][word])
         else:
             for j in range(k):
-                alpha_matrix[t][j] = (B[j][word])*tmp1
-        tmp1 = sum([alpha_matrix[t][i]*A[i][j] for i in range(k)])
+                alpha_matrix[t][j] = (B[j][word])*\
+                np.dot(alpha_matrix[t-1],A.T[j])
 
     # backward
     for t in (reversed(range(T))):
-        word = sequence[t][0]
+
         if t == T-1:
             for j in range(k):
                 beta_matrix[t][j] = 1
         else:
             for j in range(k):
-                beta_matrix[t][j] = tmp2
-        tmp2 = sum([B[i][word]*beta_matrix[t][i]*A[j][i] for i in range(k)])
+                word_next = sequence[t+1][0]
+                tmp = (B.T[word_next] * beta_matrix[t+1]) * A[j]
+                beta_matrix[t][j] = np.sum(tmp)
 
-    for t in range(T):
-        for j in range(k):
-            matrix[t][j] = alpha_matrix[t][j] * beta_matrix[t][j]
+    matrix = alpha_matrix * beta_matrix
 
-    predicted_tag = [seq.index(max(seq)) for seq in matrix]
+    predicted_tag = np.argmax(matrix, axis = 1)
     return predicted_tag
 ################################################################################
 ###main_program:
-#
 
 ### read files
 #<test input> <index to word> <index to tag> <hmmprior> <hmmemit> <hmmtrans>
@@ -142,14 +120,13 @@ index_2_word = read_as_list(sys.argv[2])
 index_2_tag = read_as_list(sys.argv[3])
 
 # A: transition matrix, B: emission_matrix, C: initial prior
-C = list(map(float, read_as_list(sys.argv[4])))
-A = read_as_matrix_float(sys.argv[6])
-B = read_as_matrix_float(sys.argv[5])
+A = np.loadtxt(sys.argv[6])
+B = np.loadtxt(sys.argv[5])
+C = np.loadtxt(sys.argv[4])
+
 # each: [observation, state]
 test_set_with_indices = convert_2_index(test_set, index_2_word, index_2_tag)
 # num of tag
 k = len(index_2_tag)
-
-# test
 output = sys.argv[7]
 prediction(test_set_with_indices, k, A, B, C, output, index_2_word, index_2_tag)

@@ -15,19 +15,7 @@ Created on Fri April 13 14:56:37 2018
 ################################################################################
 import sys
 import copy
-################################################################################
-###test_open()
-# test whether the ifle can be opened
-
-def test_open(file):
-    try:
-        f = open(file, "r")
-        f.close()
-    except:
-        print("Unable to open file" + filepath)
-        sys.exit()
-
-
+import numpy as np
 ################################################################################
 ###read_as_matrix()
 #
@@ -67,23 +55,20 @@ def convert_2_index(train_set, index_2_word, index_2_tag):
 ################################################################################
 ###learn_initialization()
 def learn_initialization(train_set,num_tag,hmmprior_file):
-    pi = [1]*num_tag
-    num_train_set = len(train_set)
-    for set in train_set:
-        # set[0] is the first word_tag, set[0][1] is the first tag
-        pi[set[0][1]] += 1
-    total = sum(pi)
-    pi = [float(i)/total for i in pi]
-    hmmprior = open(hmmprior_file, 'w')
-    hmmprior.writelines('%s\n' % item for item in pi)
-    hmmprior.close()
+    pi = np.ones(num_tag) # initialize the prior list
+    for sequence in train_set:
+        # seq[0] is the first token, set[0][1] is the first tag
+        first_tag = sequence[0][1]
+        pi[first_tag] += 1
+
+    pi = pi/sum(pi)
+    np.savetxt(hmmprior_file, pi)
     return
 ################################################################################
 ###learn_transition()
 #
 def learn_transition(train_set,num_tag, hmmtrans_file):
-    transition_matrix = [[1]*num_tag for i in range(num_tag)]
-    hmmtrans = open(hmmtrans_file,'w')
+    transition_matrix =np.ones((num_tag, num_tag))
 
     for sequence in train_set:
         for i in range(len(sequence)-1):
@@ -91,21 +76,14 @@ def learn_transition(train_set,num_tag, hmmtrans_file):
             next_tag = sequence[i+1][1]
             transition_matrix[current_tag][next_tag] += 1
 
-
-    for i, row in enumerate(transition_matrix):
-        count = sum(row)
-        for j, element in enumerate(row):
-            transition_matrix[i][j] = float(element)/float(count)
-        hmmtrans.writelines('%s ' % item for item in row)
-        hmmtrans.write('\n')
-    hmmtrans.close()
+    row_sum = np.sum(transition_matrix, axis = 1)
+    np.savetxt(hmmtrans_file, (transition_matrix.T/row_sum).T)
 
 ################################################################################
 ###learn_emission()
 #
 def learn_emission(tran_set, num_word, num_tag, hmmemit_file):
-    emission_matrix = [[1]*num_word for i in range(num_tag)]
-    hmmemit = open(hmmemit_file, 'w')
+    emission_matrix = np.ones((num_tag, num_word))
 
     for sequence in tran_set:
         for word_tag in sequence:
@@ -113,18 +91,11 @@ def learn_emission(tran_set, num_word, num_tag, hmmemit_file):
             tag = word_tag[1]
             emission_matrix[tag][word] += 1
 
-    for i, row in enumerate(emission_matrix):
-        count = sum(row)
-        for j, element in enumerate(row):
-            emission_matrix[i][j] = float(element)/float(count)
-        hmmemit.writelines('%s ' % item for item in row)
-        hmmemit.write('\n')
-    hmmemit.close()
+    row_sum = np.sum(emission_matrix, axis = 1)
+    np.savetxt(hmmemit_file, (emission_matrix.T/row_sum).T)
+
 ################################################################################
 ###main program:
-#
-test_open(sys.argv[1])
-
 
 ### read files
 #<train input> <index to word> <index to tag> <hmmprior> <hmmemit> <hmmtrans>
@@ -134,7 +105,6 @@ train_set = read_as_matrix(sys.argv[1])
 index_2_word = read_as_list(sys.argv[2])
 index_2_tag = read_as_list(sys.argv[3])
 
-
 # each: [observation, state]
 train_set_with_indices = convert_2_index(train_set, index_2_word, index_2_tag)
 num_tag = len(index_2_tag)
@@ -142,8 +112,8 @@ num_word = len(index_2_word)
 
 ### learn parameters
 hmmprior_file = sys.argv[4]
-hmmtrans_file = sys.argv[5]
-hmmemit_file = sys.argv[6]
+hmmtrans_file = sys.argv[6]
+hmmemit_file = sys.argv[5]
 learn_initialization(train_set_with_indices, num_tag,hmmprior_file)
 learn_transition(train_set_with_indices,num_tag, hmmtrans_file)
 learn_emission(train_set_with_indices, num_word, num_tag, hmmemit_file)
