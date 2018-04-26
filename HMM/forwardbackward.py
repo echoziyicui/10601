@@ -15,6 +15,7 @@ Created on Fri April 13 14:56:37 2018
 ################################################################################
 import sys
 import copy
+import math
 import numpy as np
 ################################################################################
 ###read_as_matrix()
@@ -57,9 +58,10 @@ def convert_2_index(train_set, index_2_word, index_2_tag):
 #
 def prediction(test_set_with_indices, k, A, B, C, output, index_2_word, index_2_tag):
     f = open(output, 'w')
+    lle = []
     for sequence in test_set_with_indices:
-        predicted_tag = predict_each_sequence(sequence, k, A, B, C)
-
+        predicted_tag,loglikelihood = predict_each_sequence(sequence, k, A, B, C)
+        lle.append(loglikelihood)
         for i, token in enumerate(sequence):
             word_idx = token[0]
             predicted_tag_idx = predicted_tag[i]
@@ -67,6 +69,8 @@ def prediction(test_set_with_indices, k, A, B, C, output, index_2_word, index_2_
             f.write('%s ' %word_tag)
         f.write('\n')
     f.close()
+    lle = np.array(lle)
+    print(np.average(lle))
 ################################################################################
 ### compute_prob_matrix()
 # compute matrix for each sequence
@@ -91,6 +95,9 @@ def predict_each_sequence(sequence, k, A, B, C):
                 alpha_matrix[t][j] = (B[j][word])*\
                 np.dot(alpha_matrix[t-1],A.T[j])
 
+
+    loglikelihood = math.log(np.sum(alpha_matrix[-1]))
+
     # backward
     for t in (reversed(range(T))):
 
@@ -106,7 +113,7 @@ def predict_each_sequence(sequence, k, A, B, C):
     matrix = alpha_matrix * beta_matrix
 
     predicted_tag = np.argmax(matrix, axis = 1)
-    return predicted_tag
+    return predicted_tag, loglikelihood
 ################################################################################
 ###main_program:
 

@@ -112,8 +112,9 @@ num_word = len(index_2_word)
 
 ### learn parameters
 hmmprior_file = sys.argv[4]
-hmmtrans_file = sys.argv[6]
 hmmemit_file = sys.argv[5]
+hmmtrans_file = sys.argv[6]
+
 learn_initialization(train_set_with_indices, num_tag,hmmprior_file)
 learn_transition(train_set_with_indices,num_tag, hmmtrans_file)
 learn_emission(train_set_with_indices, num_word, num_tag, hmmemit_file)
